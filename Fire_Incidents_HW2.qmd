@@ -1,0 +1,286 @@
+---
+title: "Fire_Incidents_HW2"
+---
+
+# upload packages and data
+
+```{r}
+library(tidyverse)
+library(lubridate)
+```
+```{r}
+data = read_csv(here::here("Fire_Incidents.csv"))
+head(data)
+```
+
+_Question 1_
+
+*How long does it take Wake County Fire to respond to incidents, on average (i.e. the time between when an incident is dispatched and when firefighters arrive on the scene)? (hint: you can subtract lubridate date columns from each other).*
+
+## mutate the dispatch data to dates and times
+
+```{r}
+data = data |>
+    mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+    arrive_date_time = ymd_hms(arrive_date_time),
+    response_time = arrive_date_time - dispatch_date_time)
+
+```
+
+# Get the average/mean 
+
+```{r}
+mutated_data = data |>
+  summarize(avg_response_time = mean(response_time, na.rm = TRUE))|>
+  ungroup()
+
+unique(mutated_data)
+```
+_Question 2_
+
+*Does this response time vary by station? What stations have the highest and lowest average response times?*
+
+```{r}
+  unique(data$station)
+```
+# group by station to find the mean 
+
+```{r}
+mutated_data = data |>
+  group_by(station) |>
+  summarise(avg_response_time = mean(response_time, na.rm = TRUE))|>
+  ungroup()
+unique(mutated_data)
+
+```
+
+**Included a plot**
+
+```{r}
+stations = data |>
+  group_by(station) |>
+  summarise(avg_response_time = mean(response_time, na.rm = TRUE))|>
+  ungroup()
+
+ggplot(stations, aes(x = station, y = avg_response_time)) +
+  geom_line()
+```
+
+#find station with slowest response time
+
+
+```{r}
+slowest_response_time = mutated_data |>
+  group_by(station) |>
+    summarise(slowest = max(avg_response_time, na.rm = TRUE)) |>
+    ungroup() |>
+    arrange(desc(slowest))
+unique(slowest_response_time)
+```
+
+#find fastest response station
+
+```{r}
+fastest_response_time = mutated_data |>
+  group_by(station) |>
+    summarize(fastest = min(avg_response_time, na.rm = TRUE)) |>
+    ungroup() |>
+    arrange(fastest)
+unique(fastest_response_time)
+```
+***Yes, the response time varies by station. The station with the fastest (lowest) average response time is station 13, while the station with the slowest (highest) average response time is station 29.***
+
+
+
+```{r}
+data = read_csv(here::here("Fire_Incidents.csv"))
+head(data)
+```
+
+
+```{r}
+avg_response_change = data |>
+    mutate(
+      dispatch_date_time = ymd_hms(dispatch_date_time),
+      arrive_date_time = ymd_hms(arrive_date_time))|>
+      mutate(response_time = arrive_date_time - dispatch_date_time) |>
+    group_by(dispatch_year = year(dispatch_date_time)) |>
+    summarize(avg_response_time = mean(response_time, na.rm = TRUE))|>
+    ungroup()
+avg_response_change
+```
+**Overall, the change in the response times has been small when thinking about it in seconds. the response times from 2007-2011 was steadily going down, then between 2011-2012, the response time went up. This could be from population growth. It stayed relatively normal until 2019 which makes sense because of covid. It is slowly recovering now. **
+
+_Question 4__
+# At what times of day are  calls most likely to occur?
+
+```{r}
+calls_by_hour = data |>
+  mutate(hour = hour(dispatch_date_time))|>
+  group_by(hour) |>
+  summarize(total_calls = n(), .groups ='drop') |>
+  ungroup()|>
+  arrange(desc(total_calls))
+  
+  
+unique(calls_by_hour)
+```
+
+**(highest) = Highest total of calls: 10pm. **
+
+
+_Question 5_
+
+#The dataset contains all types of fire department calls, other than emergency medical services (which are removed to protect privacy). The codes for the different incident types can be found on page 3-22 of the National Fire Incident Reporting System Complete Reference GuideLinks to an external site.. How many calls to Wake County Fire are recorded in this dataset, and how many of them are actual fires? 
+```{r}
+total_calls <- nrow(data)
+
+
+fire_calls <- data |>
+  filter(incident_type >= 100 & incident_type < 200) |>
+  nrow()
+total_calls
+fire_calls
+```
+**17231 are fire calls, 211816 are incident calls**
+
+
+_Question 6_
+
+```{r}
+total_response_time = data |>
+  mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+  arrive_date_time = ymd_hms(arrive_date_time),
+  response_time = arrive_date_time - dispatch_date_time) |>
+
+  summarize(avg_response_time = mean(response_time, na.rm = TRUE))|>
+  ungroup()
+total_response_time
+```
+_Question 7_
+
+```{r}
+fire_response <- data |>
+    mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+      arrive_date_time = ymd_hms(arrive_date_time),
+      response_time = arrive_date_time - dispatch_date_time) |>
+    filter(incident_type >= 100 & incident_type < 200) |>
+    mutate(response_time = as.numeric(response_time, units = "secs"))
+  
+
+avg_response_fire <- fire_response |>
+  summarize(avg_time_fire = mean(response_time, na.rm = TRUE))
+
+avg_response_fire
+
+```
+**the average time for a fire is 7.776 seconds faster than the average incident*
+
+
+```{r}
+data = read_csv(here::here("Fire_Incidents.csv"))
+head(data)
+```
+
+_Question 7.2_
+
+*Does this response time vary by station for fires? What stations have the highest and lowest average response times for fires? [0.5 points]*
+
+## response time for fires by station
+
+```{r}
+fire_stations_fire = data |>
+  mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+    arrive_date_time = ymd_hms(arrive_date_time),
+    response_time = arrive_date_time - dispatch_date_time)|>
+  filter(incident_type >= 100) |>
+  filter(incident_type <200) |>
+  group_by(station) |>
+  summarise(avg_response_time = mean(response_time, na.rm = TRUE))|>
+  ungroup()
+
+unique(fire_stations_fire)
+
+```
+
+*yes the station response times vary for fires*
+
+```{r}
+slowest_response_fire = data |>
+  mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+         arrive_date_time = ymd_hms(arrive_date_time),
+         response_time = arrive_date_time - dispatch_date_time) |>
+  filter(incident_type >= 100 & incident_type < 200) |>
+  group_by(station) |>
+  summarize(avg_response_time = mean(response_time, na.rm = TRUE)) |>
+  arrange(desc(avg_response_time))|>
+  ungroup()
+  
+unique(slowest_response_fire)
+```
+*the slowest response time for fires is station 23 at 586.3713 seconds.*
+
+```{r}
+fastest_response_fire = data |>
+  mutate(dispatch_date_time = ymd_hms(dispatch_date_time),
+         arrive_date_time = ymd_hms(arrive_date_time),
+         response_time = arrive_date_time - dispatch_date_time) |>
+  filter(incident_type >= 100 & incident_type < 200) |>
+  group_by(station) |>
+  summarize(avg_response_time = mean(response_time, na.rm = TRUE)) |>
+  arrange(avg_response_time)|>
+  ungroup()
+  
+unique(fastest_response_fire)
+```
+*the fastest average station for fires is station 3 at 232.7666 seconds*
+
+
+_Question 7.3_
+*Have Wake County Fire’s response times to fires been going up or down over time? What might be the reason for these changes? [0.5 points]*
+
+```{r}
+avg_response_change = data |>
+    mutate(
+      dispatch_date_time = ymd_hms(dispatch_date_time),
+      arrive_date_time = ymd_hms(arrive_date_time))|>
+      mutate(response_time = arrive_date_time - dispatch_date_time) |>
+    filter(incident_type >= 100)|>
+    filter(incident_type <200) |>
+    group_by(dispatch_year = year(dispatch_date_time)) |>
+    summarize(avg_response_time = mean(response_time, na.rm = TRUE))|>
+    ungroup()
+
+avg_response_change
+```
+**Wake County Fire's response times for fires have been going up and down. It went down from 2007-2009. It stayed relatively even from 2010 to 2018. In 2019 the response time went up because of covid.There was also the 2008 financial crisis, this could effect public funding for fire stations. **
+
+
+_Question 7.4_
+
+*At what times of day are fire calls most likely to occur*
+
+```{r}
+data = read_csv(here::here("Fire_Incidents.csv"))
+head(data)
+```
+
+```{r}
+fire_calls = data |>
+  mutate(fire_hour = hour(dispatch_date_time)) |>
+  filter(incident_type >= 100)|>
+  filter(incident_type < 200) |>
+  group_by(fire_hour) |>
+  summarize(fire_calls = n(), .groups = 'drop') |>
+  ungroup()|>
+  arrange(desc(fire_calls))
+
+
+unique(fire_calls)
+    
+```
+
+**highest number of calls: 1 am**
+
+
+
